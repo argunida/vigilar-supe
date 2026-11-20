@@ -47,13 +47,20 @@ jobs:
       - name: Chequear cambios cada pocos segundos
         run: |
           OLD=$(cat last_hash.txt 2>/dev/null || echo "")
+          UA="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36"
 
           for i in $(seq 1 $VUELTAS); do
             rm -f page.html
-            # -f: falla si el servidor devuelve error; -s test: ignora paginas vacias
-            if curl -sLf --max-time 20 "$URL" -o page.html && [ -s page.html ] && grep -q "Ingreso Nivel Medio" page.html; then
-              NEW=$(sha256sum page.html | cut -d' ' -f1)
+            CODE=$(curl -sL --max-time 20 -A "$UA" \
+              -H "Cache-Control: no-cache" -H "Pragma: no-cache" \
+              -w '%{http_code}' "$URL?t=$(date +%s)" -o page.html) || true
+            CODE=${CODE:-000}
+            SIZE=$(stat -c%s page.html 2>/dev/null || echo 0)
+            NEW=$(sha256sum page.html 2>/dev/null | cut -d' ' -f1)
+            VE=$(grep -c "14/12/2026" page.html 2>/dev/null || true)
+            echo "[$i] http=$CODE bytes=$SIZE hash=${NEW:0:10} ve_14_12=$VE"
 
+            if [ "$CODE" = "200" ] && [ "$SIZE" -gt 0 ]; then
               if [ "$NEW" != "$OLD" ]; then
                 if [ -n "$OLD" ]; then
                   curl -s \
@@ -66,7 +73,8 @@ jobs:
                 echo "$NEW" > last_hash.txt
                 git add last_hash.txt
                 git commit -m "actualizar hash"
-                git push
+                git pull --rebase || true
+                git push || true
                 OLD="$NEW"
               fi
             fi
