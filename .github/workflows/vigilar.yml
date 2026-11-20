@@ -33,10 +33,10 @@ jobs:
         run: |
           if [ ! -f prueba_enviada.txt ]; then
             curl -s \
-              -H "Title: Cambió la web del Supe" \
+              -H "Title: Cambio la web del Supe" \
               -H "Priority: high" \
               -H "Click: $URL" \
-              -d "PRUEBA: así te va a llegar el aviso cuando haya un cambio en la página de ingreso" \
+              -d "PRUEBA: asi te va a llegar el aviso cuando haya un cambio en la pagina de ingreso" \
               "ntfy.sh/$TOPIC"
             echo "ok" > prueba_enviada.txt
             git add prueba_enviada.txt
@@ -49,16 +49,18 @@ jobs:
           OLD=$(cat last_hash.txt 2>/dev/null || echo "")
 
           for i in $(seq 1 $VUELTAS); do
-            if curl -sL --max-time 20 "$URL" -o page.html; then
+            rm -f page.html
+            # -f: falla si el servidor devuelve error; -s test: ignora paginas vacias
+            if curl -sLf --max-time 20 "$URL" -o page.html && [ -s page.html ] && grep -q "Ingreso Nivel Medio" page.html; then
               NEW=$(sha256sum page.html | cut -d' ' -f1)
 
               if [ "$NEW" != "$OLD" ]; then
                 if [ -n "$OLD" ]; then
                   curl -s \
-                    -H "Title: Cambió la web del Supe" \
+                    -H "Title: Cambio la web del Supe" \
                     -H "Priority: high" \
                     -H "Click: $URL" \
-                    -d "Hubo un cambio en la página de ingreso" \
+                    -d "Hubo un cambio en la pagina de ingreso" \
                     "ntfy.sh/$TOPIC"
                 fi
                 echo "$NEW" > last_hash.txt
