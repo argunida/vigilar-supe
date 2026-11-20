@@ -1,0 +1,41 @@
+name: Vigilar web
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    env:
+      URL: "https://esupcom.unr.edu.ar/ingreso_nivel_medio.php"
+      TOPIC: "Supe-Emi74"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Chequear cambios
+        run: |
+          curl -sL --max-time 30 "$URL" -o page.html || exit 0
+          NEW=$(sha256sum page.html | cut -d' ' -f1)
+          OLD=$(cat last_hash.txt 2>/dev/null || echo "")
+
+          if [ "$NEW" != "$OLD" ]; then
+            if [ -n "$OLD" ]; then
+              curl -s \
+                -H "Title: Cambió la web del Supe" \
+                -H "Priority: high" \
+                -H "Click: $URL" \
+                -d "Hubo un cambio en la página de ingreso" \
+                "ntfy.sh/$TOPIC"
+            fi
+            echo "$NEW" > last_hash.txt
+            git config user.name "github-actions"
+            git config user.email "actions@github.com"
+            git add last_hash.txt
+            git commit -m "actualizar hash"
+            git push
+          fi
